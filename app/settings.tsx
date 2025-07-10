@@ -25,7 +25,10 @@ export default function Settings() {
   const [name, setName] = useState("");
   const [apartment, setApartment] = useState("");
   const [address, setAddress] = useState("");
-  const [location, setLocation] = useState<string | null>(null);
+  // Changed location to store an array of numbers [longitude, latitude]
+  const [location, setLocation] = useState<number[] | null>(null);
+  // Added state for district
+  const [district, setDistrict] = useState("");
 
   const [isEditingNumber, setIsEditingNumber] = useState(false);
   const [isEditingDetails, setIsEditingDetails] = useState(false);
@@ -34,13 +37,16 @@ export default function Settings() {
     name: "",
     apartment: "",
     address: "",
+    district: "", // Added district to initialData
   });
 
+  // Updated hasChanges to include district
   const hasChanges =
     emergencyNumber !== initialData.emergencyNumber ||
     name !== initialData.name ||
     apartment !== initialData.apartment ||
-    address !== initialData.address;
+    address !== initialData.address ||
+    district !== initialData.district;
 
   useEffect(() => {
     const loadData = async () => {
@@ -48,19 +54,56 @@ export default function Settings() {
       const storedName = await AsyncStorage.getItem("name");
       const storedApartment = await AsyncStorage.getItem("apartment");
       const storedAddress = await AsyncStorage.getItem("address");
+      const storedDistrict = await AsyncStorage.getItem("district"); // Load district
       const storedLocation = await AsyncStorage.getItem("location");
 
       setEmergencyNumber(storedNumber || "");
       setName(storedName || "");
       setApartment(storedApartment || "");
       setAddress(storedAddress || "");
-      setLocation(storedLocation || "");
+      setDistrict(storedDistrict || ""); // Set district state
+
+      // Parse stored location back into an array
+      if (storedLocation) {
+        try {
+          // Attempt to parse as JSON array (new format)
+          setLocation(JSON.parse(storedLocation));
+        } catch (e) {
+          console.error(
+            "Failed to parse stored location as JSON array, attempting old format:",
+            e
+          );
+          // If JSON parsing fails, try to parse the old comma-separated string format
+          const parts = storedLocation
+            .split(",")
+            .map((part) => parseFloat(part.trim()));
+          if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+            // Assuming the old format was "latitude, longitude" and we want [longitude, latitude]
+            const oldFormatCoords = [parts[1], parts[0]];
+            setLocation(oldFormatCoords);
+            // Immediately save the corrected format back to AsyncStorage
+            await AsyncStorage.setItem(
+              "location",
+              JSON.stringify(oldFormatCoords)
+            );
+          } else {
+            console.error(
+              "Stored location is neither valid JSON nor old comma-separated format:",
+              storedLocation
+            );
+            setLocation(null);
+          }
+        }
+      } else {
+        setLocation(null);
+      }
 
       setInitialData({
         emergencyNumber: storedNumber || "",
         name: storedName || "",
         apartment: storedApartment || "",
         address: storedAddress || "",
+        district: storedDistrict || "", // Set initial district
       });
     };
 
@@ -72,8 +115,9 @@ export default function Settings() {
     await AsyncStorage.setItem("name", name);
     await AsyncStorage.setItem("apartment", apartment);
     await AsyncStorage.setItem("address", address);
+    await AsyncStorage.setItem("district", district); // Save district
 
-    setInitialData({ emergencyNumber, name, apartment, address });
+    setInitialData({ emergencyNumber, name, apartment, address, district }); // Update initialData
     setIsEditingNumber(false);
     setIsEditingDetails(false);
   };
@@ -86,9 +130,11 @@ export default function Settings() {
     }
 
     const loc = await Location.getCurrentPositionAsync({});
-    const coords = `${loc.coords.latitude}, ${loc.coords.longitude}`;
+    // Store location as [longitude, latitude] array
+    const coords = [loc.coords.longitude, loc.coords.latitude];
     setLocation(coords);
-    await AsyncStorage.setItem("location", coords);
+    // Store the array as a JSON string in AsyncStorage
+    await AsyncStorage.setItem("location", JSON.stringify(coords));
   };
   const router = useRouter();
   return (
@@ -188,7 +234,14 @@ export default function Settings() {
               <TextInput
                 value={address}
                 onChangeText={setAddress}
-                placeholder="Address"
+                placeholder="Street Address"
+                className="border rounded-lg px-3 py-2 my-1"
+              />
+              {/* New input for District */}
+              <TextInput
+                value={district}
+                onChangeText={setDistrict}
+                placeholder="District"
                 className="border rounded-lg px-3 py-2 my-1"
               />
             </>
@@ -201,7 +254,11 @@ export default function Settings() {
                 Apartment: {apartment}
               </AppText>
               <AppText className="text-base ml-2 text-gray-500">
-                Address: {address}
+                Street Address: {address}
+              </AppText>
+              {/* Display District */}
+              <AppText className="text-base ml-2 text-gray-500">
+                District: {district}
               </AppText>
             </>
           )}
@@ -211,7 +268,10 @@ export default function Settings() {
             Save Current Location:
           </AppText>
           {location && (
-            <AppText className="text-sm ml-2 text-gray-500">{location}</AppText>
+            // Display longitude and latitude
+            <AppText className="text-sm ml-2 text-gray-500">
+              Longitude: {location[0]}, Latitude: {location[1]}
+            </AppText>
           )}
           <TouchableOpacity
             onPress={handleGetLocation}
