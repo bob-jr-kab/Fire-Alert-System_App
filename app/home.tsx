@@ -16,11 +16,11 @@ const humidityIcon = require("../assets/images/Humidity.png");
 const temperatureIcon = require("../assets/images/Temperature.png");
 const flameIcon = require("../assets/images/flame.png");
 
-const SERVER_URL = "https://9b23e1ce033d.ngrok-free.app"; // Your Ngrok server URL
+const SERVER_URL = "https://9b23e1ce033d.ngrok-free.app";
 
 type Device = {
-  id: string; // This will be the ESP32's MAC address
-  name: string; // User-friendly name like "Kitchen"
+  id: string;
+  name: string;
 };
 
 type SensorData = {
